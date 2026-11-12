@@ -10,6 +10,8 @@ The code is public; your real memory and credentials must stay out of the reposi
   graph traversal, and supersession history. Plain SQL with bound parameters.
 - `memory.py`: initialization, import candidate extraction, reviewed import,
   atomic supersession, consistent backup, and one-way Obsidian export.
+- `memory_profile.py`: explicit MEMORY.md section, status, question, amount,
+  and date patterns. Activate with `prepare-import --profile memory-md`.
 - `examples/`: synthetic data only; never load it into the real memory database.
 - `tests/` and GitHub Actions: regression checks with no pip dependencies.
 
@@ -21,9 +23,10 @@ The code is public; your real memory and credentials must stay out of the reposi
    Home is the persistent storage boundary; nothing belongs in `/etc`.
 3. Locate the real `MEMORY.md` and dated Markdown notes. Do not assume this checkout
    contains them. Do not change the jobs that own `MEMORY.md` or `~/memory/bank/`.
-4. Generate an import preview using explicit file paths. Review debt amounts,
-   due dates, people, open questions, and goals. The candidate extractor handles
-   only explicit bullets; read unrecognized prose yourself and add reviewed rows.
+4. Generate an import preview using explicit file paths. For prose bullets with
+   bold labels, use `python3 memory.py prepare-import --profile memory-md /path/to/MEMORY.md`.
+   Read [the profile rules](docs/memory-md-profile.md). Review debt amounts, due
+   dates, people, questions, and goals. Unrecognized prose stays in the source files.
 5. Remove secrets and duplicates, split compound facts, and approve accepted rows.
    Run a dry import, then apply. The original Markdown files are never modified.
 6. Add graph edges between the imported IDs. Agree on relation direction:
@@ -59,6 +62,10 @@ The code is public; your real memory and credentials must stay out of the reposi
   build environment. The test data is synthetic.
 - Import extraction is conservative; there is no general natural-language parser,
   automatic entity resolution, or semantic deduplication. Review before applying.
+- The `memory-md` profile recognizes known headings and literal patterns, not all
+  possible prose. A parenthesized date is only a candidate deadline: check its
+  meaning. Conflicting amounts/dates remain unset. All candidates are unapproved.
+  The original `tagged` profile remains the default for compatibility.
 - Import retries are identified by key plus source. Moving/editing the original
   note can produce a new candidate. Reuse the reviewed import file for retries.
 - Relationship corrections can use explicit SQL in a transaction. Links have no

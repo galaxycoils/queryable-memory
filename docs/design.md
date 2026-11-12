@@ -52,10 +52,24 @@ these sources makes an exact retry idempotent. Content conflicts fail atomically
 status differences are ignored on retry so completed or retired records are not
 resurrected. No third metadata table is required. This is not semantic deduplication.
 
-The extractor hashes the original absolute path, line number, and line content
+The extractor hashes the original absolute path, line number, and bullet content
 into a stable candidate key. A moved or edited source therefore requires review
 again. Unapproved rows are never inserted. Preview uses a read-only connection;
 apply uses one immediate transaction for the entire approved batch.
+
+`prepare-import` has two explicit profiles. `tagged` preserves the original
+behavior. `memory-md` uses known Markdown headings, uppercase status markers,
+literal question phrases, dollar amounts, and full-year date patterns. It retains
+original bullet text and adds review notes to `detail` for conflicts or ambiguous
+values. Indented continuation lines are included in the bullet and its key.
+Every candidate remains unapproved and reported. The JSONL contract, database
+schema, apply gate, and retry behavior are unchanged. See
+[the exact profile rules](memory-md-profile.md) before extending the patterns.
+
+Keys do not depend on the chosen profile. If a previously imported bullet gains
+different extracted content under the new profile, the importer rejects that
+key/source as a content conflict; review and supersede the existing row explicitly.
+Do not change keys merely to bypass this protection.
 
 ## Export and backup
 

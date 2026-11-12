@@ -17,6 +17,8 @@ import sqlite3
 import sys
 import tempfile
 
+import memory_profile
+
 ROOT = Path(__file__).resolve().parent
 FIELDS = ("kind", "title", "detail", "status", "due_date", "amount", "confidence", "source")
 KINDS = {"fact", "commitment", "question", "person", "goal"}
@@ -120,12 +122,15 @@ def supersede(db, old_id, replacement, carry_links=False):
     return new_id
 
 
-def prepare_import(paths):
+def prepare_import(paths, profile="tagged"):
     """Conservative candidate extraction. Never writes to the database.
 
-    Accepts explicit bullets like '- question: ...' and Markdown checkboxes.
+    The default accepts tagged bullets and checkboxes. The memory-md profile
+    additionally recognizes section kinds, status markers, amounts, and dates.
     Unrecognized prose stays in the source files. All candidates need review.
     """
+    if profile not in {"tagged", "memory-md"}:
+        raise ValueError("Unknown import profile")
     candidates = []
     skipped = 0
     seen = set()
@@ -134,6 +139,15 @@ def prepare_import(paths):
         if path in seen:
             continue
         seen.add(path)
+        if profile == "memory-md":
+            for number, raw, item in memory_profile.extract(path.read_text(encoding="utf-8")):
+                if SECRET.search(raw):
+                    skipped += 1
+                    continue
+                key = hashlib.sha256(f"{path}:{number}\n{raw}".encode()).hexdigest()
+                item["source"] = f"markdown:{path}:{number}"
+                candidates.append({"key": key, "approved": False, "item": item})
+            continue
         fenced = False
         for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
             if line.lstrip().startswith(("```", "~~~")):
@@ -302,7 +316,9 @@ def main(argv=None):
     parser.add_argument("--db", default="~/memory/memory.db", help="database path (default: ~/memory/memory.db)")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("init", help="create an empty database; never seed real memory")
-    prepare = commands.add_parser("prepare-import", help="emit unapproved JSONL candidates from explicit bullets")
+    prepare = commands.add_parser("prepare-import", help="emit unapproved JSONL candidates from Markdown")
+    prepare.add_argument("--profile", choices=("tagged", "memory-md"), default="tagged",
+                         help="tagged bullets (default), or MEMORY.md section/prose patterns")
     prepare.add_argument("files", nargs="+")
     imp = commands.add_parser("import", help="preview or apply approved JSONL records")
     imp.add_argument("file")
@@ -320,7 +336,7 @@ def main(argv=None):
         if args.command == "init":
             print(initialize(args.db))
         elif args.command == "prepare-import":
-            rows, skipped = prepare_import(args.files)
+            rows, skipped = prepare_import(args.files, profile=args.profile)
             for row in rows:
                 print(json.dumps(row, ensure_ascii=False))
             print(f"{len(rows)} unapproved candidates; {skipped} sensitive-looking lines skipped. "

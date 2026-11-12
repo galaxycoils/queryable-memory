@@ -126,24 +126,47 @@ Do not use `INSERT OR REPLACE` to update memory. See [docs/design.md](docs/desig
 
 ## Import existing Markdown
 
-The importer is deliberately conservative. It extracts explicit `fact:`, `debt:`,
-`commitment:`, `question:`, `person:`, and `goal:` bullets, plus Markdown checkboxes.
-It does **not** infer arbitrary prose. Every candidate starts unapproved. Muse can
-read the remaining notes and add reviewed JSONL rows manually.
+For prose bullets with bold labels, status markers, and inline amounts/dates, use
+the **`memory-md` profile**. Section headings determine the kind: Commitments/Debts,
+Facts, People index, Goals, and Questions. `OPEN`, `RESOLVED`, `CLOSED`, and `CONFLICT`
+determine status. Explicit question phrases such as “still open,” “awaiting his
+answer,” and “unanswered” produce question candidates even outside those sections.
+
+Every candidate still starts **unapproved**, with `confidence: reported`. This
+profile changes extraction only; it never writes to the database or approves a row.
 
 ```bash
 mkdir -p local
 chmod 700 local
 umask 077
-python3 memory.py prepare-import /actual/path/to/MEMORY.md ~/memory/*.md \
+python3 memory.py prepare-import --profile memory-md /actual/path/to/MEMORY.md ~/memory/*.md \
   > local/memory.import.jsonl
 ```
 
+For example, under `## Commitments`, this bullet needs no tag or rewriting:
+
+```markdown
+- **Example installment:** OPEN — $276.07, due Nov 19, 2026.
+```
+
+It produces an unapproved commitment titled `Example installment`, with amount
+`276.07` and due date `2026-11-19`. See the [exact profile rules](docs/memory-md-profile.md)
+and [synthetic MEMORY.md example](examples/memory-profile.md).
+
+Omit `--profile memory-md` (or pass `--profile tagged`) for the original behavior:
+explicit `fact:`, `debt:`, `commitment:`, `question:`, `person:`, and `goal:` bullets,
+plus checkboxes. That default still leaves amounts unset and only extracts ISO
+dates following `due`. Neither profile infers arbitrary prose.
+
 Pass actual existing paths; if no `*.md` files exist, omit that glob. Review the JSONL:
 
-- Verify each kind, title, status, source, and date; fill in amounts and confidence.
-- The parser only recognizes explicit `due YYYY-MM-DD` dates and leaves amounts
-  unset. It does not resolve ambiguous dates, currencies, or obligations.
+- Verify each kind, title, status, source, amount, date, and confidence.
+- The `memory-md` profile extracts dollar amounts and full-year dates such as
+  `due Nov 19, 2026` and `due 2026-11-19`. A lone `(2026-10-30)` is proposed as
+  `due_date` with a review note: clear it if it dates the note rather than a deadline.
+- Multiple distinct amounts/dates and invalid values stay unset with a review
+  note in `detail`. `CONFLICT` keeps the row open with a note. No year, currency,
+  or relationship is inferred.
 - Split compound bullets into separate items with distinct keys. Remove duplicates.
 - Never import passwords, keys, codes, card numbers, or account numbers. A basic
   sensitive-line filter helps but is not a guarantee; review all proposed content.
