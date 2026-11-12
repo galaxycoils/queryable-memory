@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+*.db
+*.db-*
+*.sqlite*
+.env*
+.venv/
+local/
+exports/
+backups/
+*.import.jsonl

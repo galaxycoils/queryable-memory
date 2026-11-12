@@ -1,0 +1,10 @@
+{
+  "kind": "commitment",
+  "title": "Example payment — corrected",
+  "detail": "Synthetic correction: the amount is 35, due November 22.",
+  "status": "open",
+  "due_date": "2026-11-22",
+  "amount": 35,
+  "confidence": "confirmed",
+  "source": "demo"
+}
